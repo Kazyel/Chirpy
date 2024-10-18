@@ -1,16 +1,42 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"sync/atomic"
 )
 
-func main() {
-	port := "8080"
-	filepathRoot := "./"
+type apiConfig struct {
+	fileserverHits atomic.Int32
+}
 
+func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits.Load())))
+}
+
+func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cfg.fileserverHits.Add(1)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func main() {
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir(filepathRoot)))
+	apiCfg := &apiConfig{
+		fileserverHits: atomic.Int32{},
+	}
+	port := "8080"
+	filepathRoot := "./app"
+
+	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
+
+	mux.HandleFunc("/healthz", handlerReadiness)
+	mux.HandleFunc("/metrics", apiCfg.handlerMetrics)
+	mux.HandleFunc("/reset", apiCfg.handlerReset)
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -18,5 +44,5 @@ func main() {
 	}
 
 	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
-	server.ListenAndServe()
+	log.Fatal(server.ListenAndServe())
 }
