@@ -3,7 +3,10 @@ package main
 import "net/http"
 
 func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
-	cfg.fileserverHits.Store(0)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Hits reset to 0"))
+	if cfg.platform != "dev" {
+		w.WriteHeader(403)
+		w.Write([]byte("This endpoint is only available in dev mode."))
+	}
+
+	cfg.db.DeleteUsers(r.Context())
 }
