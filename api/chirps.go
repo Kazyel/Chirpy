@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type Chirp struct {
+type ChirpResponse struct {
 	ID        uuid.UUID `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -48,7 +48,7 @@ func (cfg *ApiConfig) HandlerCreateChirps(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	chirpResponse := Chirp{
+	chirpResponse := ChirpResponse{
 		ID:        newChirp.ID,
 		CreatedAt: newChirp.CreatedAt,
 		UpdatedAt: newChirp.UpdatedAt,
@@ -74,9 +74,9 @@ func (cfg *ApiConfig) HandlerGetChirps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chirps := make([]Chirp, len(data))
+	chirps := make([]ChirpResponse, len(data))
 	for index, chirp := range data {
-		chirps[index] = Chirp{
+		chirps[index] = ChirpResponse{
 			ID:        chirp.ID,
 			CreatedAt: chirp.CreatedAt,
 			UpdatedAt: chirp.UpdatedAt,
@@ -86,6 +86,75 @@ func (cfg *ApiConfig) HandlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	}
 
 	marshalResponse, err := json.Marshal(chirps)
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+	w.Header().Add("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(200)
+	w.Write(marshalResponse)
+}
+
+func (cfg *ApiConfig) HandlerGetChirpByUserID(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("chirpID"))
+
+	if err != nil || id == uuid.Nil {
+		utils.RespondWithError(w, 400, "Invalid ID")
+		return
+	}
+
+	data, err := cfg.db.GetChirpsByUserID(r.Context(), id)
+
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+
+	chirps := make([]ChirpResponse, len(data))
+	for index, chirp := range data {
+		chirps[index] = ChirpResponse{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+		}
+	}
+
+	marshalResponse, err := json.Marshal(chirps)
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+	w.Header().Add("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(200)
+	w.Write(marshalResponse)
+}
+
+func (cfg *ApiConfig) HandlerGetChirpByID(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("chirpID"))
+
+	if err != nil || id == uuid.Nil {
+		utils.RespondWithError(w, 400, "Invalid ID")
+		return
+	}
+
+	data, err := cfg.db.GetChirpsByID(r.Context(), id)
+
+	if err != nil {
+		utils.RespondWithError(w, 404, err.Error())
+		return
+	}
+
+	chirp := ChirpResponse{
+		ID:        data.ID,
+		CreatedAt: data.CreatedAt,
+		UpdatedAt: data.UpdatedAt,
+		Body:      data.Body,
+		UserID:    data.UserID,
+	}
+
+	marshalResponse, err := json.Marshal(chirp)
 	if err != nil {
 		utils.RespondWithError(w, 500, err.Error())
 		return

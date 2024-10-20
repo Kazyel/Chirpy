@@ -24,21 +24,22 @@ func main() {
 		log.Fatal(err)
 	}
 
-	apiCfg := api.CreateApiConfig(db, platform)
+	api := api.CreateApiConfig(db, platform)
 	mux := http.NewServeMux()
 
 	// Serve static files
-	mux.Handle("/app/", apiCfg.MiddlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
+	mux.Handle("/app/", api.MiddlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
 
 	// Admin Routes
-	mux.HandleFunc("GET /admin/metrics", apiCfg.HandlerMetrics)
-	mux.HandleFunc("POST /admin/reset", apiCfg.HandlerReset)
+	mux.HandleFunc("GET /admin/metrics", api.HandlerMetrics)
+	mux.HandleFunc("POST /admin/reset", api.HandlerReset)
 
 	// API Routes
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
-	mux.HandleFunc("POST /api/users", apiCfg.HandlerCreateUsers)
-	mux.HandleFunc("POST /api/chirps", apiCfg.HandlerCreateChirps)
-	mux.HandleFunc("GET /api/chirps", apiCfg.HandlerGetChirps)
+	mux.HandleFunc("POST /api/users", api.HandlerCreateUsers)
+	mux.HandleFunc("POST /api/chirps", api.HandlerCreateChirps)
+	mux.HandleFunc("GET /api/chirps", api.HandlerGetChirps)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", api.HandlerGetChirpByID)
 
 	server := &http.Server{
 		Addr:    ":" + port,
