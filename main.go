@@ -28,6 +28,14 @@ type User struct {
 	Email     string    `json:"email"`
 }
 
+type Chirp struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body      string    `json:"body"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg.fileserverHits.Add(1)
@@ -61,7 +69,7 @@ func (cfg *apiConfig) handlerCreateUsers(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	user, err := cfg.db.CreateUser(r.Context(), body.Email)
+	newUser, err := cfg.db.CreateUser(r.Context(), body.Email)
 
 	if err != nil {
 		respondWithError(w, 500, err.Error())
@@ -69,13 +77,65 @@ func (cfg *apiConfig) handlerCreateUsers(w http.ResponseWriter, r *http.Request)
 	}
 
 	userResponse := User{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
+		ID:        newUser.ID,
+		CreatedAt: newUser.CreatedAt,
+		UpdatedAt: newUser.UpdatedAt,
+		Email:     newUser.Email,
 	}
 
-	marshalResponse, _ := json.Marshal(userResponse)
+	marshalResponse, err := json.Marshal(userResponse)
+	if err != nil {
+		respondWithError(w, 500, err.Error())
+		return
+	}
+	w.Header().Add("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(201)
+	w.Write(marshalResponse)
+}
+
+func (cfg *apiConfig) handlerCreateChirps(w http.ResponseWriter, r *http.Request) {
+	type chirpRequest struct {
+		Body   string    `json:"body"`
+		UserID uuid.UUID `json:"user_id"`
+	}
+
+	req := &chirpRequest{}
+	err := json.NewDecoder(r.Body).Decode(&req)
+
+	if err != nil {
+		respondWithError(w, 403, "Something went wrong")
+		return
+	}
+
+	if len(req.Body) > 140 {
+		respondWithError(w, 400, "Chirpy is too long")
+	}
+
+	filteredBody := profaneFilter(req.Body)
+
+	newChirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
+		Body:   filteredBody,
+		UserID: req.UserID,
+	})
+
+	if err != nil {
+		respondWithError(w, 500, err.Error())
+		return
+	}
+
+	chirpResponse := Chirp{
+		ID:        newChirp.ID,
+		CreatedAt: newChirp.CreatedAt,
+		UpdatedAt: newChirp.UpdatedAt,
+		Body:      newChirp.Body,
+		UserID:    newChirp.UserID,
+	}
+
+	marshalResponse, err := json.Marshal(chirpResponse)
+	if err != nil {
+		respondWithError(w, 500, err.Error())
+		return
+	}
 	w.Header().Add("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(201)
 	w.Write(marshalResponse)
@@ -85,7 +145,6 @@ func main() {
 	godotenv.Load()
 	dbUrl := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
-
 	db, err := sql.Open("postgres", dbUrl)
 
 	if err != nil {
@@ -102,13 +161,17 @@ func main() {
 	port := "8080"
 	filepathRoot := "./app"
 
+	// Serve static files
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
 
-	mux.HandleFunc("GET /api/healthz", handlerReadiness)
+	// Admin Routes
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
-	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirpy)
+
+	// API Routes
+	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUsers)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerCreateChirps)
 
 	server := &http.Server{
 		Addr:    ":" + port,
