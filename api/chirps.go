@@ -3,19 +3,12 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"github.com/Kazyel/chirpy-bootdev/internal/database"
 	"github.com/Kazyel/chirpy-bootdev/utils"
 	"github.com/google/uuid"
 )
-
-type ApiConfig struct {
-	fileserverHits atomic.Int32
-	db             *database.Queries
-	platform       string
-}
 
 type Chirp struct {
 	ID        uuid.UUID `json:"id"`
@@ -70,5 +63,34 @@ func (cfg *ApiConfig) HandlerCreateChirps(w http.ResponseWriter, r *http.Request
 	}
 	w.Header().Add("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(201)
+	w.Write(marshalResponse)
+}
+
+func (cfg *ApiConfig) HandlerGetChirps(w http.ResponseWriter, r *http.Request) {
+	data, err := cfg.db.GetChirps(r.Context())
+
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+
+	chirps := make([]Chirp, len(data))
+	for index, chirp := range data {
+		chirps[index] = Chirp{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+		}
+	}
+
+	marshalResponse, err := json.Marshal(chirps)
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+	w.Header().Add("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(200)
 	w.Write(marshalResponse)
 }
