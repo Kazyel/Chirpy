@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func profaneFilter(s string) string {
+func ProfaneFilter(s string) string {
 	profaneWords := []string{
 		"kerfuffle",
 		"sharbert",
@@ -28,12 +28,12 @@ func profaneFilter(s string) string {
 	return joinedString
 }
 
-func respondWithJSON(w http.ResponseWriter, statusCode int, str string) {
+func RespondWithJSON(w http.ResponseWriter, statusCode int, str string) {
 	type jsonClean struct {
 		CleanedBody string `json:"cleaned_body"`
 	}
 
-	filteredString := profaneFilter(str)
+	filteredString := ProfaneFilter(str)
 	cleanedJson := jsonClean{
 		CleanedBody: filteredString,
 	}
@@ -43,7 +43,7 @@ func respondWithJSON(w http.ResponseWriter, statusCode int, str string) {
 	w.Write(cleanedMarshal)
 }
 
-func respondWithError(w http.ResponseWriter, statusCode int, errorMessage string) {
+func RespondWithError(w http.ResponseWriter, statusCode int, errorMessage string) {
 	type jsonError struct {
 		Error string `json:"error"`
 	}
@@ -73,13 +73,13 @@ func handlerValidateChirpy(w http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&req)
 
 	if err != nil {
-		respondWithError(w, 400, "Something went wrong")
+		RespondWithError(w, 400, "Something went wrong")
 		return
 	}
 
 	if len(req.Body) > 140 {
-		respondWithError(w, 400, "Chirpy is too long")
+		RespondWithError(w, 400, "Chirpy is too long")
 	}
 
-	respondWithJSON(w, 200, req.Body)
+	RespondWithJSON(w, 200, req.Body)
 }
