@@ -96,7 +96,7 @@ func (cfg *ApiConfig) HandlerGetChirps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *ApiConfig) HandlerGetChirpByUserID(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(r.PathValue("chirpID"))
+	id, err := uuid.Parse(r.PathValue("userID"))
 
 	if err != nil || id == uuid.Nil {
 		utils.RespondWithError(w, 400, "Invalid ID")
