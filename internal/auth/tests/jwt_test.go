@@ -87,3 +87,17 @@ func TestVerboseBearerToken(t *testing.T) {
 		t.Errorf("Token does not match: %s != %s", token, "token")
 	}
 }
+
+func TestVerboseRefreshToken(t *testing.T) {
+	randomHex, err := auth.MakeRefreshToken()
+
+	if err != nil {
+		t.Errorf("Error making refresh token: %s", err)
+	}
+
+	t.Log(randomHex)
+
+	if len(randomHex) != 64 {
+		t.Errorf("Refresh token length is not 64: %d", len(randomHex))
+	}
+}

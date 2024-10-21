@@ -12,17 +12,21 @@ import (
 )
 
 type UserResponse struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-	Token     string    `json:"token,omitempty"`
+	ID           uuid.UUID `json:"id,omitempty"`
+	CreatedAt    time.Time `json:"created_at,omitempty"`
+	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+	Email        string    `json:"email,omitempty"`
+	Token        string    `json:"token,omitempty"`
+	RefreshToken string    `json:"refresh_token,omitempty"`
+}
+
+type TokenResponse struct {
+	Token string `json:"token"`
 }
 
 type userRequest struct {
-	Password         string `json:"password"`
-	Email            string `json:"email"`
-	ExpiresInSeconds int    `json:"expires_in_seconds"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 
 func (cfg *ApiConfig) HandlerCreateUsers(w http.ResponseWriter, r *http.Request) {
@@ -89,11 +93,25 @@ func (cfg *ApiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.ExpiresInSeconds == 0 || req.ExpiresInSeconds > 3600 {
-		req.ExpiresInSeconds = 3600
+	jwtToken, err := auth.MakeJWT(user.ID, cfg.secretToken, time.Duration(3600)*time.Second)
+
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
 	}
 
-	jwtToken, err := auth.MakeJWT(user.ID, cfg.secretToken, time.Duration(req.ExpiresInSeconds)*time.Second)
+	refreshToken, err := auth.MakeRefreshToken()
+
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+
+	_, err = cfg.db.SaveRefreshToken(r.Context(), database.SaveRefreshTokenParams{
+		Token:     refreshToken,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(time.Duration(3600*24*60) * time.Second),
+	})
 
 	if err != nil {
 		utils.RespondWithError(w, 500, err.Error())
@@ -101,11 +119,12 @@ func (cfg *ApiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userResponse := UserResponse{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
-		Token:     jwtToken,
+		ID:           user.ID,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		Email:        user.Email,
+		Token:        jwtToken,
+		RefreshToken: refreshToken,
 	}
 
 	marshalResponse, err := json.Marshal(userResponse)
@@ -116,4 +135,79 @@ func (cfg *ApiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(200)
 	w.Write(marshalResponse)
+}
+
+func (cfg *ApiConfig) HandlerRefreshToken(w http.ResponseWriter, r *http.Request) {
+	refreshToken, err := auth.GetBearerToken(r.Header)
+
+	if err != nil {
+		utils.RespondWithError(w, 403, err.Error())
+		return
+	}
+
+	refreshTokenData, err := cfg.db.GetRefreshToken(r.Context(), refreshToken)
+
+	if err != nil {
+		utils.RespondWithError(w, 401, err.Error())
+		return
+	}
+
+	if refreshTokenData.RevokedAt.Valid {
+		utils.RespondWithError(w, 401, "Refresh token revoked")
+		return
+	}
+
+	refreshExpiresAt := refreshTokenData.ExpiresAt.UTC().Local().Add(time.Duration(3600*3) * time.Second)
+	now := time.Now().UTC().Local()
+
+	if refreshExpiresAt.Before(now) {
+		utils.RespondWithError(w, 401, "Refresh token expired")
+		return
+	}
+
+	user, err := cfg.db.GetUserByRefreshToken(r.Context(), refreshToken)
+
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+
+	jwtToken, err := auth.MakeJWT(user.ID, cfg.secretToken, time.Duration(3600)*time.Second)
+
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+
+	userResponse := TokenResponse{
+		Token: jwtToken,
+	}
+
+	marshalResponse, err := json.Marshal(userResponse)
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(200)
+	w.Write(marshalResponse)
+}
+
+func (cfg *ApiConfig) HandlerRevokeToken(w http.ResponseWriter, r *http.Request) {
+	refreshToken, err := auth.GetBearerToken(r.Header)
+
+	if err != nil {
+		utils.RespondWithError(w, 403, err.Error())
+		return
+	}
+
+	err = cfg.db.RevokeToken(r.Context(), refreshToken)
+
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+
+	w.WriteHeader(204)
 }
