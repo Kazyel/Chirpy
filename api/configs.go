@@ -11,12 +11,14 @@ type ApiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
 	platform       string
+	secretToken    string
 }
 
-func CreateApiConfig(db *sql.DB, platform string) *ApiConfig {
+func CreateApiConfig(db *sql.DB, platform string, token string) *ApiConfig {
 	return &ApiConfig{
 		fileserverHits: atomic.Int32{},
 		db:             database.New(db),
 		platform:       platform,
+		secretToken:    token,
 	}
 }

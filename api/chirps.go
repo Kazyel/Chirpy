@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Kazyel/chirpy-bootdev/internal/auth"
 	"github.com/Kazyel/chirpy-bootdev/internal/database"
 	"github.com/Kazyel/chirpy-bootdev/utils"
 	"github.com/google/uuid"
@@ -24,8 +25,22 @@ func (cfg *ApiConfig) HandlerCreateChirps(w http.ResponseWriter, r *http.Request
 		UserID uuid.UUID `json:"user_id"`
 	}
 
+	bearerToken, err := auth.GetBearerToken(r.Header)
+
+	if err != nil {
+		utils.RespondWithError(w, 403, err.Error())
+		return
+	}
+
+	userID, err := auth.ValidateJWT(bearerToken, cfg.secretToken)
+
+	if err != nil {
+		utils.RespondWithError(w, 401, err.Error())
+		return
+	}
+
 	req := &chirpRequest{}
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err = json.NewDecoder(r.Body).Decode(&req)
 
 	if err != nil {
 		utils.RespondWithError(w, 403, "Something went wrong")
@@ -40,7 +55,7 @@ func (cfg *ApiConfig) HandlerCreateChirps(w http.ResponseWriter, r *http.Request
 
 	newChirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body:   filteredBody,
-		UserID: req.UserID,
+		UserID: userID,
 	})
 
 	if err != nil {

@@ -16,13 +16,16 @@ type UserResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	Token     string    `json:"token,omitempty"`
+}
+
+type userRequest struct {
+	Password         string `json:"password"`
+	Email            string `json:"email"`
+	ExpiresInSeconds int    `json:"expires_in_seconds"`
 }
 
 func (cfg *ApiConfig) HandlerCreateUsers(w http.ResponseWriter, r *http.Request) {
-	type userRequest struct {
-		Password string `json:"password"`
-		Email    string `json:"email"`
-	}
 
 	body := &userRequest{}
 	err := json.NewDecoder(r.Body).Decode(&body)
@@ -67,21 +70,17 @@ func (cfg *ApiConfig) HandlerCreateUsers(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *ApiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
-	type userRequest struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-
 	req := &userRequest{}
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondWithError(w, 403, "Something went wrong")
+		utils.RespondWithError(w, 403, err.Error())
 		return
 	}
 
 	user, err := cfg.db.GetUser(r.Context(), req.Email)
 
 	if err != nil {
-		utils.RespondWithError(w, 403, "Something went wrong")
+		utils.RespondWithError(w, 403, err.Error())
 		return
 	}
 
@@ -90,11 +89,23 @@ func (cfg *ApiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.ExpiresInSeconds == 0 || req.ExpiresInSeconds > 3600 {
+		req.ExpiresInSeconds = 3600
+	}
+
+	jwtToken, err := auth.MakeJWT(user.ID, cfg.secretToken, time.Duration(req.ExpiresInSeconds)*time.Second)
+
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+
 	userResponse := UserResponse{
 		ID:        user.ID,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
+		Token:     jwtToken,
 	}
 
 	marshalResponse, err := json.Marshal(userResponse)

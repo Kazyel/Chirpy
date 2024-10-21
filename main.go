@@ -18,13 +18,14 @@ func main() {
 	godotenv.Load()
 	dbUrl := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
+	secretToken := os.Getenv("JWT_SECRET")
 
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	api := api.CreateApiConfig(db, platform)
+	api := api.CreateApiConfig(db, platform, secretToken)
 	mux := http.NewServeMux()
 
 	// Serve static files
@@ -37,10 +38,12 @@ func main() {
 	// API Routes
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("POST /api/users", api.HandlerCreateUsers)
+
 	mux.HandleFunc("POST /api/chirps", api.HandlerCreateChirps)
 	mux.HandleFunc("GET /api/chirps", api.HandlerGetChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", api.HandlerGetChirpByID)
 	mux.HandleFunc("POST /api/chirps/{userID}", api.HandlerGetChirpByUserID)
+
 	mux.HandleFunc("POST /api/login", api.HandlerLogin)
 
 	server := &http.Server{
