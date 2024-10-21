@@ -90,6 +90,7 @@ func (cfg *ApiConfig) HandlerGetChirps(w http.ResponseWriter, r *http.Request) {
 		utils.RespondWithError(w, 500, err.Error())
 		return
 	}
+
 	w.Header().Add("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(200)
 	w.Write(marshalResponse)
@@ -126,6 +127,7 @@ func (cfg *ApiConfig) HandlerGetChirpByUserID(w http.ResponseWriter, r *http.Req
 		utils.RespondWithError(w, 500, err.Error())
 		return
 	}
+
 	w.Header().Add("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(200)
 	w.Write(marshalResponse)
@@ -159,6 +161,7 @@ func (cfg *ApiConfig) HandlerGetChirpByID(w http.ResponseWriter, r *http.Request
 		utils.RespondWithError(w, 500, err.Error())
 		return
 	}
+
 	w.Header().Add("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(200)
 	w.Write(marshalResponse)

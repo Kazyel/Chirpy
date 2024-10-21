@@ -65,3 +65,44 @@ func (cfg *ApiConfig) HandlerCreateUsers(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(201)
 	w.Write(marshalResponse)
 }
+
+func (cfg *ApiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
+	type userRequest struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	req := &userRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondWithError(w, 403, "Something went wrong")
+		return
+	}
+
+	user, err := cfg.db.GetUser(r.Context(), req.Email)
+
+	if err != nil {
+		utils.RespondWithError(w, 403, "Something went wrong")
+		return
+	}
+
+	if err := auth.CheckPasswordHash(req.Password, user.HashedPassword); err != nil {
+		utils.RespondWithError(w, 401, "Incorrect email or password")
+		return
+	}
+
+	userResponse := UserResponse{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+
+	marshalResponse, err := json.Marshal(userResponse)
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+	w.Header().Add("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(200)
+	w.Write(marshalResponse)
+}
