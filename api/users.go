@@ -5,11 +5,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Kazyel/chirpy-bootdev/internal/auth"
+	"github.com/Kazyel/chirpy-bootdev/internal/database"
 	"github.com/Kazyel/chirpy-bootdev/utils"
 	"github.com/google/uuid"
 )
 
-type User struct {
+type UserResponse struct {
 	ID        uuid.UUID `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -18,7 +20,8 @@ type User struct {
 
 func (cfg *ApiConfig) HandlerCreateUsers(w http.ResponseWriter, r *http.Request) {
 	type userRequest struct {
-		Email string `json:"email"`
+		Password string `json:"password"`
+		Email    string `json:"email"`
 	}
 
 	body := &userRequest{}
@@ -29,14 +32,24 @@ func (cfg *ApiConfig) HandlerCreateUsers(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	newUser, err := cfg.db.CreateUser(r.Context(), body.Email)
+	hashedPassword, err := auth.HashPassword(body.Password)
+
+	if err != nil {
+		utils.RespondWithError(w, 403, "Something went wrong")
+		return
+	}
+
+	newUser, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{
+		Email:          body.Email,
+		HashedPassword: hashedPassword,
+	})
 
 	if err != nil {
 		utils.RespondWithError(w, 500, err.Error())
 		return
 	}
 
-	userResponse := User{
+	userResponse := UserResponse{
 		ID:        newUser.ID,
 		CreatedAt: newUser.CreatedAt,
 		UpdatedAt: newUser.UpdatedAt,
