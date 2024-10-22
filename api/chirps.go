@@ -71,14 +71,7 @@ func (cfg *ApiConfig) HandlerCreateChirps(w http.ResponseWriter, r *http.Request
 		UserID:    newChirp.UserID,
 	}
 
-	marshalResponse, err := json.Marshal(chirpResponse)
-	if err != nil {
-		utils.RespondWithError(w, 500, err.Error())
-		return
-	}
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(201)
-	w.Write(marshalResponse)
+	utils.RespondWithJSON(w, 201, 500, chirpResponse)
 }
 
 func (cfg *ApiConfig) HandlerGetChirps(w http.ResponseWriter, r *http.Request) {
@@ -89,9 +82,10 @@ func (cfg *ApiConfig) HandlerGetChirps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chirps := make([]ChirpResponse, len(data))
+	chirpsResponse := make([]ChirpResponse, len(data))
+
 	for index, chirp := range data {
-		chirps[index] = ChirpResponse{
+		chirpsResponse[index] = ChirpResponse{
 			ID:        chirp.ID,
 			CreatedAt: chirp.CreatedAt,
 			UpdatedAt: chirp.UpdatedAt,
@@ -100,15 +94,7 @@ func (cfg *ApiConfig) HandlerGetChirps(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	marshalResponse, err := json.Marshal(chirps)
-	if err != nil {
-		utils.RespondWithError(w, 500, err.Error())
-		return
-	}
-
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(200)
-	w.Write(marshalResponse)
+	utils.RespondWithJSON(w, 200, 500, chirpsResponse)
 }
 
 func (cfg *ApiConfig) HandlerGetChirpByUserID(w http.ResponseWriter, r *http.Request) {
@@ -126,9 +112,10 @@ func (cfg *ApiConfig) HandlerGetChirpByUserID(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	chirps := make([]ChirpResponse, len(data))
+	chirpsResponse := make([]ChirpResponse, len(data))
+
 	for index, chirp := range data {
-		chirps[index] = ChirpResponse{
+		chirpsResponse[index] = ChirpResponse{
 			ID:        chirp.ID,
 			CreatedAt: chirp.CreatedAt,
 			UpdatedAt: chirp.UpdatedAt,
@@ -137,15 +124,7 @@ func (cfg *ApiConfig) HandlerGetChirpByUserID(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	marshalResponse, err := json.Marshal(chirps)
-	if err != nil {
-		utils.RespondWithError(w, 500, err.Error())
-		return
-	}
-
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(200)
-	w.Write(marshalResponse)
+	utils.RespondWithJSON(w, 200, 500, chirpsResponse)
 }
 
 func (cfg *ApiConfig) HandlerGetChirpByID(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +142,7 @@ func (cfg *ApiConfig) HandlerGetChirpByID(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	chirp := ChirpResponse{
+	chirpResponse := ChirpResponse{
 		ID:        data.ID,
 		CreatedAt: data.CreatedAt,
 		UpdatedAt: data.UpdatedAt,
@@ -171,13 +150,5 @@ func (cfg *ApiConfig) HandlerGetChirpByID(w http.ResponseWriter, r *http.Request
 		UserID:    data.UserID,
 	}
 
-	marshalResponse, err := json.Marshal(chirp)
-	if err != nil {
-		utils.RespondWithError(w, 500, err.Error())
-		return
-	}
-
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(200)
-	w.Write(marshalResponse)
+	utils.RespondWithJSON(w, 200, 500, chirpResponse)
 }

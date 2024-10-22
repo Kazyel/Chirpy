@@ -63,14 +63,7 @@ func (cfg *ApiConfig) HandlerCreateUsers(w http.ResponseWriter, r *http.Request)
 		Email:     newUser.Email,
 	}
 
-	marshalResponse, err := json.Marshal(userResponse)
-	if err != nil {
-		utils.RespondWithError(w, 500, err.Error())
-		return
-	}
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(201)
-	w.Write(marshalResponse)
+	utils.RespondWithJSON(w, 201, 500, userResponse)
 }
 
 func (cfg *ApiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
@@ -127,14 +120,7 @@ func (cfg *ApiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
 		RefreshToken: refreshToken,
 	}
 
-	marshalResponse, err := json.Marshal(userResponse)
-	if err != nil {
-		utils.RespondWithError(w, 500, err.Error())
-		return
-	}
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(200)
-	w.Write(marshalResponse)
+	utils.RespondWithJSON(w, 200, 500, userResponse)
 }
 
 func (cfg *ApiConfig) HandlerRefreshToken(w http.ResponseWriter, r *http.Request) {
@@ -152,18 +138,7 @@ func (cfg *ApiConfig) HandlerRefreshToken(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if refreshTokenData.RevokedAt.Valid {
-		utils.RespondWithError(w, 401, "Refresh token revoked")
-		return
-	}
-
-	refreshExpiresAt := refreshTokenData.ExpiresAt.UTC().Local().Add(time.Duration(3600*3) * time.Second)
-	now := time.Now().UTC().Local()
-
-	if refreshExpiresAt.Before(now) {
-		utils.RespondWithError(w, 401, "Refresh token expired")
-		return
-	}
+	utils.ValidateRefreshToken(refreshTokenData.RevokedAt.Valid, refreshTokenData.ExpiresAt, w)
 
 	user, err := cfg.db.GetUserByRefreshToken(r.Context(), refreshToken)
 
@@ -183,15 +158,7 @@ func (cfg *ApiConfig) HandlerRefreshToken(w http.ResponseWriter, r *http.Request
 		Token: jwtToken,
 	}
 
-	marshalResponse, err := json.Marshal(userResponse)
-	if err != nil {
-		utils.RespondWithError(w, 500, err.Error())
-		return
-	}
-
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(200)
-	w.Write(marshalResponse)
+	utils.RespondWithJSON(w, 200, 500, userResponse)
 }
 
 func (cfg *ApiConfig) HandlerRevokeToken(w http.ResponseWriter, r *http.Request) {

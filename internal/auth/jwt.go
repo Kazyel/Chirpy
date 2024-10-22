@@ -72,6 +72,6 @@ func MakeRefreshToken() (string, error) {
 		return "", err
 	}
 
-	encodexHex := hex.EncodeToString(bytes)
-	return encodexHex, nil
+	encodedHex := hex.EncodeToString(bytes)
+	return encodedHex, nil
 }
