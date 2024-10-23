@@ -1,4 +1,4 @@
--- name: GetChirps :many
+-- name: GetChirpsAsc :many
 SELECT
     *
 FROM

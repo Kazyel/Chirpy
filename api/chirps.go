@@ -66,6 +66,43 @@ func (cfg *ApiConfig) HandlerCreateChirps(w http.ResponseWriter, r *http.Request
 
 func (cfg *ApiConfig) HandlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	authorID := r.URL.Query().Get("author_id")
+	sortBy := r.URL.Query().Get("sort")
+
+	if authorID != "" && sortBy == "" {
+		if sortBy != "asc" && sortBy != "desc" {
+			utils.RespondWithError(w, 400, "Invalid sort")
+			return
+		}
+
+		uuid, err := uuid.Parse(authorID)
+
+		if err != nil {
+			utils.RespondWithError(w, 400, "Invalid ID")
+			return
+		}
+
+		if sortBy == "asc" {
+			data, err := cfg.db.GetChirpsByAuthorAsc(r.Context(), uuid)
+			if err != nil {
+				utils.RespondWithError(w, 404, err.Error())
+				return
+			}
+
+			parseChirpsResponse(data, w)
+			return
+		}
+
+		if sortBy == "desc" {
+			data, err := cfg.db.GetChirpsByAuthorDesc(r.Context(), uuid)
+			if err != nil {
+				utils.RespondWithError(w, 404, err.Error())
+				return
+			}
+
+			parseChirpsResponse(data, w)
+			return
+		}
+	}
 
 	if authorID != "" {
 		uuid, err := uuid.Parse(authorID)
@@ -75,47 +112,51 @@ func (cfg *ApiConfig) HandlerGetChirps(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		data, err := cfg.db.GetChirpsByAuthor(r.Context(), uuid)
+		data, err := cfg.db.GetChirpsByAuthorAsc(r.Context(), uuid)
 
 		if err != nil {
 			utils.RespondWithError(w, 404, err.Error())
+			return
 		}
 
-		chirpsResponse := make([]ChirpResponse, len(data))
-
-		for index, chirp := range data {
-			chirpsResponse[index] = ChirpResponse{
-				ID:        chirp.ID,
-				CreatedAt: chirp.CreatedAt,
-				UpdatedAt: chirp.UpdatedAt,
-				Body:      chirp.Body,
-				UserID:    chirp.UserID,
-			}
-		}
-
-		utils.RespondWithJSON(w, 200, 500, chirpsResponse)
+		parseChirpsResponse(data, w)
+		return
 	}
 
-	data, err := cfg.db.GetChirps(r.Context())
+	if sortBy != "" {
+		if sortBy != "asc" && sortBy != "desc" {
+			utils.RespondWithError(w, 400, "Invalid sort")
+			return
+		}
 
+		if sortBy == "asc" {
+			data, err := cfg.db.GetChirpsAsc(r.Context())
+			if err != nil {
+				utils.RespondWithError(w, 404, err.Error())
+			}
+
+			parseChirpsResponse(data, w)
+			return
+		}
+
+		if sortBy == "desc" {
+			data, err := cfg.db.GetChirpsDesc(r.Context())
+			if err != nil {
+				utils.RespondWithError(w, 404, err.Error())
+				return
+			}
+
+			parseChirpsResponse(data, w)
+			return
+		}
+	}
+
+	data, err := cfg.db.GetChirpsAsc(r.Context())
 	if err != nil {
 		utils.RespondWithError(w, 500, err.Error())
 		return
 	}
-
-	chirpsResponse := make([]ChirpResponse, len(data))
-
-	for index, chirp := range data {
-		chirpsResponse[index] = ChirpResponse{
-			ID:        chirp.ID,
-			CreatedAt: chirp.CreatedAt,
-			UpdatedAt: chirp.UpdatedAt,
-			Body:      chirp.Body,
-			UserID:    chirp.UserID,
-		}
-	}
-
-	utils.RespondWithJSON(w, 200, 500, chirpsResponse)
+	parseChirpsResponse(data, w)
 }
 
 func (cfg *ApiConfig) HandlerGetChirpByID(w http.ResponseWriter, r *http.Request) {
@@ -182,4 +223,20 @@ func (cfg *ApiConfig) HandlerDeleteChirp(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(204)
+}
+
+func parseChirpsResponse(data []database.Chirp, w http.ResponseWriter) {
+	chirpsResponse := make([]ChirpResponse, len(data))
+
+	for index, chirp := range data {
+		chirpsResponse[index] = ChirpResponse{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+		}
+	}
+
+	utils.RespondWithJSON(w, 200, 500, chirpsResponse)
 }
