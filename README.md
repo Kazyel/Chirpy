@@ -38,4 +38,4 @@ POLKA_KEY=polka
 
 ## API Endpoints & Resources
 
-For more detailed documentation, please refer to the [API documentation](https://github.com/Kazyel/chirpy-bootdev/docs/api.md).
+For more detailed documentation, please refer to the [API documentation](https://github.com/Kazyel/chirpy-bootdev/blob/main/docs/api.md).
