@@ -34,3 +34,15 @@ func (cfg *ApiConfig) MiddlewareAuthorize(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+func (cfg *ApiConfig) MiddlewareDevMode(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if cfg.platform != "dev" {
+			w.WriteHeader(403)
+			w.Write([]byte("This endpoint is only available in dev mode."))
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}

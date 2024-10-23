@@ -38,8 +38,8 @@ func (cfg *ApiConfig) HandlerCreateChirps(w http.ResponseWriter, r *http.Request
 	filteredBody := utils.ProfaneFilter(req.Body)
 	userID, err := uuid.Parse(r.Header.Get("User-ID"))
 
-	if err != nil {
-		utils.RespondWithError(w, 403, err.Error())
+	if err != nil || userID == uuid.Nil {
+		utils.RespondWithError(w, 401, "Invalid ID")
 		return
 	}
 
@@ -65,37 +65,38 @@ func (cfg *ApiConfig) HandlerCreateChirps(w http.ResponseWriter, r *http.Request
 }
 
 func (cfg *ApiConfig) HandlerGetChirps(w http.ResponseWriter, r *http.Request) {
-	data, err := cfg.db.GetChirps(r.Context())
+	authorID := r.URL.Query().Get("author_id")
 
-	if err != nil {
-		utils.RespondWithError(w, 500, err.Error())
-		return
-	}
+	if authorID != "" {
+		uuid, err := uuid.Parse(authorID)
 
-	chirpsResponse := make([]ChirpResponse, len(data))
-
-	for index, chirp := range data {
-		chirpsResponse[index] = ChirpResponse{
-			ID:        chirp.ID,
-			CreatedAt: chirp.CreatedAt,
-			UpdatedAt: chirp.UpdatedAt,
-			Body:      chirp.Body,
-			UserID:    chirp.UserID,
+		if err != nil {
+			utils.RespondWithError(w, 400, "Invalid ID")
+			return
 		}
+
+		data, err := cfg.db.GetChirpsByAuthor(r.Context(), uuid)
+
+		if err != nil {
+			utils.RespondWithError(w, 404, err.Error())
+		}
+
+		chirpsResponse := make([]ChirpResponse, len(data))
+
+		for index, chirp := range data {
+			chirpsResponse[index] = ChirpResponse{
+				ID:        chirp.ID,
+				CreatedAt: chirp.CreatedAt,
+				UpdatedAt: chirp.UpdatedAt,
+				Body:      chirp.Body,
+				UserID:    chirp.UserID,
+			}
+		}
+
+		utils.RespondWithJSON(w, 200, 500, chirpsResponse)
 	}
 
-	utils.RespondWithJSON(w, 200, 500, chirpsResponse)
-}
-
-func (cfg *ApiConfig) HandlerGetChirpByUserID(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(r.PathValue("userID"))
-
-	if err != nil || id == uuid.Nil {
-		utils.RespondWithError(w, 400, "Invalid ID")
-		return
-	}
-
-	data, err := cfg.db.GetChirpsByUserID(r.Context(), id)
+	data, err := cfg.db.GetChirps(r.Context())
 
 	if err != nil {
 		utils.RespondWithError(w, 500, err.Error())
@@ -146,8 +147,8 @@ func (cfg *ApiConfig) HandlerGetChirpByID(w http.ResponseWriter, r *http.Request
 func (cfg *ApiConfig) HandlerDeleteChirp(w http.ResponseWriter, r *http.Request) {
 	userID, err := uuid.Parse(r.Header.Get("User-ID"))
 
-	if err != nil {
-		utils.RespondWithError(w, 500, err.Error())
+	if err != nil || userID == uuid.Nil {
+		utils.RespondWithError(w, 401, "Invalid ID")
 		return
 	}
 

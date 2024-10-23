@@ -12,10 +12,11 @@ import (
 )
 
 type UserResponse struct {
-	ID           uuid.UUID `json:"id,omitempty"`
-	CreatedAt    time.Time `json:"created_at,omitempty"`
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
-	Email        string    `json:"email,omitempty"`
+	ID           uuid.UUID `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Email        string    `json:"email"`
+	IsChirpyRed  bool      `json:"is_chirpy_red"`
 	Token        string    `json:"token,omitempty"`
 	RefreshToken string    `json:"refresh_token,omitempty"`
 }
@@ -57,10 +58,11 @@ func (cfg *ApiConfig) HandlerCreateUsers(w http.ResponseWriter, r *http.Request)
 	}
 
 	userResponse := UserResponse{
-		ID:        newUser.ID,
-		CreatedAt: newUser.CreatedAt,
-		UpdatedAt: newUser.UpdatedAt,
-		Email:     newUser.Email,
+		ID:          newUser.ID,
+		CreatedAt:   newUser.CreatedAt,
+		UpdatedAt:   newUser.UpdatedAt,
+		Email:       newUser.Email,
+		IsChirpyRed: newUser.IsChirpyRed,
 	}
 
 	utils.RespondWithJSON(w, 201, 500, userResponse)
@@ -116,6 +118,7 @@ func (cfg *ApiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:    user.CreatedAt,
 		UpdatedAt:    user.UpdatedAt,
 		Email:        user.Email,
+		IsChirpyRed:  user.IsChirpyRed,
 		Token:        jwtToken,
 		RefreshToken: refreshToken,
 	}
@@ -180,17 +183,17 @@ func (cfg *ApiConfig) HandlerRevokeToken(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *ApiConfig) HandlerUpdateUser(w http.ResponseWriter, r *http.Request) {
-	bearerToken, err := auth.GetBearerToken(r.Header)
-
-	if err != nil {
-		utils.RespondWithError(w, 401, err.Error())
-		return
+	type updateResponse struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Email     string    `json:"email"`
 	}
 
-	userID, err := auth.ValidateJWT(bearerToken, cfg.secretToken)
+	userID, err := uuid.Parse(r.Header.Get("User-ID"))
 
-	if err != nil {
-		utils.RespondWithError(w, 401, err.Error())
+	if err != nil || userID == uuid.Nil {
+		utils.RespondWithError(w, 401, "Invalid ID")
 		return
 	}
 
@@ -224,11 +227,11 @@ func (cfg *ApiConfig) HandlerUpdateUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	userResponse := UserResponse{
+	userResponse := updateResponse{
 		ID:        userID,
+		Email:     req.Email,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
-		Email:     req.Email,
 	}
 
 	utils.RespondWithJSON(w, 200, 500, userResponse)

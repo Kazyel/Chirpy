@@ -1,6 +1,11 @@
 package auth
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"fmt"
+	"net/http"
+
+	"golang.org/x/crypto/bcrypt"
+)
 
 func HashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -20,4 +25,20 @@ func CheckPasswordHash(password, hash string) error {
 	}
 
 	return nil
+}
+
+func GetAPIKey(headers http.Header) (string, error) {
+	authHeader := headers.Get("Authorization")
+
+	if authHeader == "" {
+		return "", fmt.Errorf("authorization header not found")
+	}
+
+	apiKey := authHeader[len("ApiKey "):]
+
+	if apiKey == "" {
+		return "", fmt.Errorf("api key not found")
+	}
+
+	return apiKey, nil
 }

@@ -61,6 +61,11 @@ func GetBearerToken(headers http.Header) (string, error) {
 	}
 
 	bearerToken := authHeader[len("Bearer "):]
+
+	if bearerToken == "" {
+		return "", fmt.Errorf("bearer token not found")
+	}
+
 	return bearerToken, nil
 }
 

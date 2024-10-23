@@ -13,7 +13,7 @@ import (
 )
 
 const getUserByRefreshToken = `-- name: GetUserByRefreshToken :one
-SELECT users.id, users.created_at, users.updated_at, users.email, users.hashed_password, refresh_token.user_id, refresh_token.token
+SELECT users.id, users.created_at, users.updated_at, users.email, users.hashed_password, users.is_chirpy_red, refresh_token.user_id, refresh_token.token
 FROM
     refresh_token
 INNER JOIN users ON refresh_token.user_id = users.id
@@ -26,6 +26,7 @@ type GetUserByRefreshTokenRow struct {
 	UpdatedAt      time.Time
 	Email          string
 	HashedPassword string
+	IsChirpyRed    bool
 	UserID         uuid.UUID
 	Token          string
 }
@@ -39,6 +40,7 @@ func (q *Queries) GetUserByRefreshToken(ctx context.Context, token string) (GetU
 		&i.UpdatedAt,
 		&i.Email,
 		&i.HashedPassword,
+		&i.IsChirpyRed,
 		&i.UserID,
 		&i.Token,
 	)
