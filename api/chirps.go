@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Kazyel/chirpy-bootdev/internal/auth"
 	"github.com/Kazyel/chirpy-bootdev/internal/database"
 	"github.com/Kazyel/chirpy-bootdev/utils"
 	"github.com/google/uuid"
@@ -21,26 +20,11 @@ type ChirpResponse struct {
 
 func (cfg *ApiConfig) HandlerCreateChirps(w http.ResponseWriter, r *http.Request) {
 	type chirpRequest struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
-	}
-
-	bearerToken, err := auth.GetBearerToken(r.Header)
-
-	if err != nil {
-		utils.RespondWithError(w, 403, err.Error())
-		return
-	}
-
-	userID, err := auth.ValidateJWT(bearerToken, cfg.secretToken)
-
-	if err != nil {
-		utils.RespondWithError(w, 401, err.Error())
-		return
+		Body string `json:"body"`
 	}
 
 	req := &chirpRequest{}
-	err = json.NewDecoder(r.Body).Decode(&req)
+	err := json.NewDecoder(r.Body).Decode(&req)
 
 	if err != nil {
 		utils.RespondWithError(w, 403, "Something went wrong")
@@ -52,6 +36,12 @@ func (cfg *ApiConfig) HandlerCreateChirps(w http.ResponseWriter, r *http.Request
 	}
 
 	filteredBody := utils.ProfaneFilter(req.Body)
+	userID, err := uuid.Parse(r.Header.Get("User-ID"))
+
+	if err != nil {
+		utils.RespondWithError(w, 403, err.Error())
+		return
+	}
 
 	newChirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body:   filteredBody,
@@ -151,4 +141,44 @@ func (cfg *ApiConfig) HandlerGetChirpByID(w http.ResponseWriter, r *http.Request
 	}
 
 	utils.RespondWithJSON(w, 200, 500, chirpResponse)
+}
+
+func (cfg *ApiConfig) HandlerDeleteChirp(w http.ResponseWriter, r *http.Request) {
+	userID, err := uuid.Parse(r.Header.Get("User-ID"))
+
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+
+	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
+
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+
+	_, err = cfg.db.GetChirpsByID(r.Context(), chirpID)
+
+	if err != nil {
+		utils.RespondWithError(w, 404, err.Error())
+		return
+	}
+
+	deletedChirp, err := cfg.db.DeleteChirp(r.Context(), database.DeleteChirpParams{
+		ID:     chirpID,
+		UserID: userID,
+	})
+
+	if err != nil {
+		utils.RespondWithError(w, 403, err.Error())
+		return
+	}
+
+	if (deletedChirp == database.Chirp{}) {
+		utils.RespondWithError(w, 404, "Chirp not found")
+		return
+	}
+
+	w.WriteHeader(204)
 }

@@ -1,8 +1,10 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
+
+	"github.com/Kazyel/chirpy-bootdev/internal/auth"
+	"github.com/Kazyel/chirpy-bootdev/utils"
 )
 
 func (cfg *ApiConfig) MiddlewareMetricsInc(next http.Handler) http.Handler {
@@ -12,15 +14,23 @@ func (cfg *ApiConfig) MiddlewareMetricsInc(next http.Handler) http.Handler {
 	})
 }
 
-func (cfg *ApiConfig) HandlerMetrics(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf(`
-	<html>
-		<body>
-			<h1>Welcome, Chirpy Admin</h1>
-			<p>Chirpy has been visited %d times!</p>
-		</body>
-  	</html>
-  `, cfg.fileserverHits.Load())))
+func (cfg *ApiConfig) MiddlewareAuthorize(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bearerToken, err := auth.GetBearerToken(r.Header)
+
+		if err != nil {
+			utils.RespondWithError(w, 401, err.Error())
+			return
+		}
+
+		userID, err := auth.ValidateJWT(bearerToken, cfg.secretToken)
+
+		if err != nil {
+			utils.RespondWithError(w, 401, err.Error())
+			return
+		}
+
+		r.Header.Set("User-ID", userID.String())
+		next.ServeHTTP(w, r)
+	})
 }

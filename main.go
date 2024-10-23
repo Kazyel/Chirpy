@@ -12,9 +12,7 @@ import (
 )
 
 func main() {
-	port := "8080"
-	filepathRoot := "./app"
-
+	// .env
 	godotenv.Load()
 	dbUrl := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
@@ -25,6 +23,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	port := "8080"
+	filepathRoot := "./app"
 	api := api.CreateApiConfig(db, platform, secretToken)
 	mux := http.NewServeMux()
 
@@ -39,15 +39,18 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("POST /api/users", api.HandlerCreateUsers)
 
-	mux.HandleFunc("POST /api/chirps", api.HandlerCreateChirps)
+	//Chirps
+	mux.Handle("POST /api/chirps", api.MiddlewareAuthorize(http.HandlerFunc(api.HandlerCreateChirps)))
 	mux.HandleFunc("GET /api/chirps", api.HandlerGetChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", api.HandlerGetChirpByID)
 	mux.HandleFunc("POST /api/chirps/{userID}", api.HandlerGetChirpByUserID)
+	mux.Handle("DELETE /api/chirps/{chirpID}", api.MiddlewareAuthorize(http.HandlerFunc(api.HandlerDeleteChirp)))
 
 	// Auth Routes
 	mux.HandleFunc("POST /api/login", api.HandlerLogin)
 	mux.HandleFunc("POST /api/refresh", api.HandlerRefreshToken)
 	mux.HandleFunc("POST /api/revoke", api.HandlerRevokeToken)
+	mux.HandleFunc("PUT /api/users", api.HandlerUpdateUser)
 
 	server := &http.Server{
 		Addr:    ":" + port,

@@ -24,14 +24,14 @@ type TokenResponse struct {
 	Token string `json:"token"`
 }
 
-type userRequest struct {
+type UserRequest struct {
 	Password string `json:"password"`
 	Email    string `json:"email"`
 }
 
 func (cfg *ApiConfig) HandlerCreateUsers(w http.ResponseWriter, r *http.Request) {
 
-	body := &userRequest{}
+	body := &UserRequest{}
 	err := json.NewDecoder(r.Body).Decode(&body)
 
 	if err != nil {
@@ -67,7 +67,7 @@ func (cfg *ApiConfig) HandlerCreateUsers(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *ApiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
-	req := &userRequest{}
+	req := &UserRequest{}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		utils.RespondWithError(w, 403, err.Error())
@@ -177,4 +177,59 @@ func (cfg *ApiConfig) HandlerRevokeToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(204)
+}
+
+func (cfg *ApiConfig) HandlerUpdateUser(w http.ResponseWriter, r *http.Request) {
+	bearerToken, err := auth.GetBearerToken(r.Header)
+
+	if err != nil {
+		utils.RespondWithError(w, 401, err.Error())
+		return
+	}
+
+	userID, err := auth.ValidateJWT(bearerToken, cfg.secretToken)
+
+	if err != nil {
+		utils.RespondWithError(w, 401, err.Error())
+		return
+	}
+
+	req := &UserRequest{}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondWithError(w, 403, err.Error())
+		return
+	}
+
+	if len(req.Email) == 0 || len(req.Password) == 0 {
+		utils.RespondWithError(w, 400, "Email and password are required")
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(req.Password)
+
+	if err != nil {
+		utils.RespondWithError(w, 403, "Something went wrong")
+		return
+	}
+
+	err = cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
+		ID:             userID,
+		Email:          req.Email,
+		HashedPassword: hashedPassword,
+	})
+
+	if err != nil {
+		utils.RespondWithError(w, 500, err.Error())
+		return
+	}
+
+	userResponse := UserResponse{
+		ID:        userID,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Email:     req.Email,
+	}
+
+	utils.RespondWithJSON(w, 200, 500, userResponse)
 }
